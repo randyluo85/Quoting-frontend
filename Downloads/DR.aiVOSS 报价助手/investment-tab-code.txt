@@ -1,0 +1,252 @@
+                <TabsContent value="investment" activeValue={activeTab}>
+                  <Card className="border-0 shadow-none">
+                    {(!activeProduct?.investmentItems || activeProduct.investmentItems.length === 0) ? (
+                      <div className="text-center py-12 text-slate-400">
+                        <TrendingUp size={48} className="mx-auto mb-3 opacity-30" />
+                        <p className="text-sm mb-4">暂无投资项，点击下方按钮开始配置</p>
+                        <Button 
+                          size="sm" 
+                          className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                          onClick={() => {
+                            if (!activeProduct) return;
+                            const maxId = Math.max(0, ...(activeProduct.investmentItems || []).map(i => i.id));
+                            const newItem: InvestmentItem = { 
+                              id: maxId + 1, 
+                              type: 'GAUGE', 
+                              name: '新检具', 
+                              amount: 0, 
+                              quantity: 0, 
+                              unitPrice: 150, 
+                              autoCalculate: true 
+                            };
+                            const updated = products.map(p => p.id === activeProduct.id ? { 
+                              ...p, 
+                              investmentItems: [...(p.investmentItems || []), newItem] 
+                            } : p);
+                            onProductsChange(updated);
+                          }}
+                        >
+                          <Plus size={14} /> 添加投资项
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className={tableStyles.container}>
+                          <table className={tableStyles.table}>
+                            <thead className={tableStyles.thead}>
+                              <tr>
+                                <th className={`${tableStyles.th} w-32`}>类型</th>
+                                <th className={`${tableStyles.th} w-48`}>名称</th>
+                                <th className={`${tableStyles.th} w-32 text-right`}>数量参数</th>
+                                <th className={`${tableStyles.th} w-24 text-right`}>单价 (¥)</th>
+                                <th className={`${tableStyles.th} w-32 text-right`}>计算金额 (¥)</th>
+                                <th className={`${tableStyles.th} w-40`}>供应商</th>
+                                <th className={`${tableStyles.th} w-20 text-center`}>操作</th>
+                              </tr>
+                            </thead>
+                            <tbody className={tableStyles.tbody}>
+                              {activeProduct.investmentItems.map((item) => {
+                                const calculatedAmount = (item.quantity || 0) * (item.unitPrice || 0);
+                                const displayAmount = item.autoCalculate ? calculatedAmount : item.amount;
+                                const getTypeInfo = (type: string) => {
+                                  switch(type) {
+                                    case 'GAUGE': return { label: '检具 (Gauge)', unit: '点位数', defaultPrice: 150 };
+                                    case 'JIG': return { label: '工装 (Jig)', unit: '功能模块数', defaultPrice: 500 };
+                                    case 'FIXTURE': return { label: '成型工装 (Fixture)', unit: '长度 (mm)', defaultPrice: 0.5 };
+                                    case 'MOLD': return { label: '模具 (Mold)', unit: '重量/体积', defaultPrice: 200 };
+                                    default: return { label: '其他', unit: '数量', defaultPrice: 100 };
+                                  }
+                                };
+                                const typeInfo = getTypeInfo(item.type);
+                                return (
+                                  <tr key={item.id} className={tableStyles.tr}>
+                                    <td className={tableStyles.td}>
+                                      <select 
+                                        value={item.type} 
+                                        onChange={(e) => {
+                                          const newType = e.target.value as InvestmentItem['type'];
+                                          const newTypeInfo = getTypeInfo(newType);
+                                          const updated = products.map(p => p.id === activeProduct.id ? {
+                                            ...p, 
+                                            investmentItems: (p.investmentItems || []).map(inv => inv.id === item.id ? {
+                                              ...inv, 
+                                              type: newType, 
+                                              unitPrice: newTypeInfo.defaultPrice, 
+                                              amount: inv.autoCalculate ? (inv.quantity || 0) * newTypeInfo.defaultPrice : inv.amount
+                                            } : inv)
+                                          } : p);
+                                          onProductsChange(updated);
+                                        }} 
+                                        className="w-full px-2 py-1 border border-slate-200 rounded text-xs font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                      >
+                                        <option value="GAUGE">检具 (Gauge)</option>
+                                        <option value="JIG">工装 (Jig)</option>
+                                        <option value="FIXTURE">成型工装 (Fixture)</option>
+                                        <option value="MOLD">模具 (Mold)</option>
+                                      </select>
+                                    </td>
+                                    <td className={tableStyles.td}>
+                                      <Input 
+                                        value={item.name} 
+                                        onChange={(e) => {
+                                          const updated = products.map(p => p.id === activeProduct.id ? {
+                                            ...p, 
+                                            investmentItems: (p.investmentItems || []).map(inv => inv.id === item.id ? { ...inv, name: e.target.value } : inv)
+                                          } : p);
+                                          onProductsChange(updated);
+                                        }} 
+                                        className="h-8 text-xs" 
+                                      />
+                                    </td>
+                                    <td className={tableStyles.td}>
+                                      <div className="flex flex-col gap-1">
+                                        <Input 
+                                          type="number" 
+                                          placeholder={typeInfo.unit} 
+                                          value={item.quantity || ''} 
+                                          onChange={(e) => {
+                                            const newQty = parseFloat(e.target.value) || 0;
+                                            const updated = products.map(p => p.id === activeProduct.id ? {
+                                              ...p, 
+                                              investmentItems: (p.investmentItems || []).map(inv => inv.id === item.id ? {
+                                                ...inv, 
+                                                quantity: newQty, 
+                                                amount: inv.autoCalculate ? newQty * (inv.unitPrice || 0) : inv.amount
+                                              } : inv)
+                                            } : p);
+                                            onProductsChange(updated);
+                                          }} 
+                                          className="h-8 text-xs text-right" 
+                                        />
+                                        <span className="text-[10px] text-slate-500 text-right">{typeInfo.unit}</span>
+                                      </div>
+                                    </td>
+                                    <td className={tableStyles.td}>
+                                      <Input 
+                                        type="number" 
+                                        step="0.01" 
+                                        value={item.unitPrice || ''} 
+                                        onChange={(e) => {
+                                          const newPrice = parseFloat(e.target.value) || 0;
+                                          const updated = products.map(p => p.id === activeProduct.id ? {
+                                            ...p, 
+                                            investmentItems: (p.investmentItems || []).map(inv => inv.id === item.id ? {
+                                              ...inv, 
+                                              unitPrice: newPrice, 
+                                              amount: inv.autoCalculate ? (inv.quantity || 0) * newPrice : inv.amount
+                                            } : inv)
+                                          } : p);
+                                          onProductsChange(updated);
+                                        }} 
+                                        className="h-8 text-xs text-right font-medium text-blue-600" 
+                                      />
+                                    </td>
+                                    <td className={`${tableStyles.td} text-right`}>
+                                      <div className="flex items-center justify-end gap-1">
+                                        <span className={`text-sm font-bold ${displayAmount > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+                                          ¥{displayAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}
+                                        </span>
+                                        {item.autoCalculate && <Sparkles size={12} className="text-blue-500" title="自动计算" />}
+                                      </div>
+                                    </td>
+                                    <td className={tableStyles.td}>
+                                      <Input 
+                                        value={item.supplier || ''} 
+                                        onChange={(e) => {
+                                          const updated = products.map(p => p.id === activeProduct.id ? {
+                                            ...p, 
+                                            investmentItems: (p.investmentItems || []).map(inv => inv.id === item.id ? { ...inv, supplier: e.target.value } : inv)
+                                          } : p);
+                                          onProductsChange(updated);
+                                        }} 
+                                        className="h-8 text-xs" 
+                                      />
+                                    </td>
+                                    <td className={`${tableStyles.td} text-center`}>
+                                      <Button 
+                                        size="sm" 
+                                        variant="ghost" 
+                                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50" 
+                                        onClick={() => {
+                                          const updated = products.map(p => p.id === activeProduct.id ? {
+                                            ...p, 
+                                            investmentItems: (p.investmentItems || []).filter(inv => inv.id !== item.id)
+                                          } : p);
+                                          onProductsChange(updated);
+                                        }}
+                                      >
+                                        <X size={14} />
+                                      </Button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                              
+                              {/* 增加投资项按钮行 */}
+                              <tr className={tableStyles.tr}>
+                                <td colSpan={7} className={`${tableStyles.td} text-center py-3`}>
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    className="gap-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                    onClick={() => {
+                                      if (!activeProduct) return;
+                                      const maxId = Math.max(0, ...(activeProduct.investmentItems || []).map(i => i.id));
+                                      const newItem: InvestmentItem = {
+                                        id: maxId + 1,
+                                        type: 'GAUGE',
+                                        name: '新检具',
+                                        amount: 0,
+                                        quantity: 0,
+                                        unitPrice: 150,
+                                        autoCalculate: true
+                                      };
+                                      const updated = products.map(p => p.id === activeProduct.id ? {
+                                        ...p,
+                                        investmentItems: [...(p.investmentItems || []), newItem]
+                                      } : p);
+                                      onProductsChange(updated);
+                                    }}
+                                  >
+                                    <Plus size={16} />
+                                    增加投资项
+                                  </Button>
+                                </td>
+                              </tr>
+
+                              {/* 总计行 */}
+                              <tr className="bg-amber-50 font-bold">
+                                <td colSpan={4} className={`${tableStyles.td} text-amber-900`}>投资项总计</td>
+                                <td className={`${tableStyles.td} text-right text-amber-700 text-sm`}>
+                                  ¥{(activeProduct?.investmentItems || [])
+                                    .reduce((acc, item) => acc + (item.autoCalculate ? (item.quantity || 0) * (item.unitPrice || 0) : item.amount), 0)
+                                    .toLocaleString('zh-CN', { minimumFractionDigits: 2 })}
+                                </td>
+                                <td colSpan={2} className={tableStyles.td}></td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* 计算说明 */}
+                        <div className="p-4 bg-blue-50 border-t border-blue-100">
+                          <div className="flex gap-2">
+                            <AlertCircle size={16} className="text-blue-600 shrink-0 mt-0.5" />
+                            <div className="text-xs text-blue-800">
+                              <div className="font-semibold mb-1">计算说明：</div>
+                              <ul className="list-disc list-inside space-y-0.5 text-blue-700">
+                                <li><strong>检具：</strong>点位数 × ¥150/点</li>
+                                <li><strong>工装：</strong>功能模块数 × ¥500/模块</li>
+                                <li><strong>成型工装：</strong>长度(mm) × ¥0.5/mm</li>
+                                <li><strong>模具：</strong>重量/体积 × ¥200/单位</li>
+                              </ul>
+                              <div className="mt-2 text-blue-600">
+                                💡 单价可根据实际情况调整，金额会自动重新计算
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </Card>
+                </TabsContent>
